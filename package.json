@@ -1,0 +1,19 @@
+{
+  "name": "makerpay-bot",
+  "version": "1.0.0",
+  "description": "MakerPay Telegram Bot",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "migrate": "node migrate.js",
+    "dev": "node --watch src/index.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.104.1",
+    "dotenv": "^16.4.5",
+    "express": "^5.2.1",
+    "pg": "^8.13.3",
+    "telegraf": "^4.16.3"
+  }
+}
