@@ -71,12 +71,23 @@ export function createCallbackServer(bot) {
   // Cleanup expired states every 30 min
   setInterval(purgeExpiredStates, 30 * 60 * 1000);
 
-  const port = Number(process.env.PORT) || Number(process.env.CALLBACK_PORT) || 3002;
-  app.listen(port, () => {
-    console.log(`🌐 OAuth callback server: http://localhost:${port}`);
-  });
+  // In production, index.js starts the server after attaching webhook.
+  // In development, start immediately.
+  if (process.env.NODE_ENV !== 'production') {
+    const port = Number(process.env.PORT) || Number(process.env.CALLBACK_PORT) || 3002;
+    app.listen(port, () => {
+      console.log(`🌐 OAuth callback server: http://localhost:${port}`);
+    });
+  }
 
   return app;
+}
+
+export function startServer(app) {
+  const port = Number(process.env.PORT) || Number(process.env.CALLBACK_PORT) || 3002;
+  app.listen(port, () => {
+    console.log(`🌐 Server listening on port ${port}`);
+  });
 }
 
 function htmlPage(title, message, success) {

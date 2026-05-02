@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import { Telegraf } from 'telegraf';
 import { closePool } from './database.js';
-import { createCallbackServer } from './server.js';
+import { createCallbackServer, startServer } from './server.js';
 import { registerCommon } from './handlers/common.js';
 import { registerStart } from './handlers/start.js';
 import { registerProfile } from './handlers/profile.js';
@@ -18,13 +18,11 @@ if (!token) throw new Error('BOT_TOKEN .env faylida topilmadi!');
 
 const bot = new Telegraf(token);
 
-// Global error handler
 bot.catch((err, ctx) => {
   console.error(`Error for ${ctx.updateType}:`, err.message);
   ctx.reply('Xatolik yuz berdi. Iltimos, qayta urinib ko\'ring.').catch(() => {});
 });
 
-// Register all handlers
 registerCommon(bot);
 registerStart(bot);
 registerProfile(bot);
@@ -36,10 +34,6 @@ registerDone(bot);
 registerTerms(bot);
 registerNotifications(bot);
 
-// Start OAuth callback server
-createCallbackServer(bot);
-
-// Graceful shutdown
 const shutdown = async (signal) => {
   console.log(`\n${signal} qabul qilindi. Bot to'xtatilmoqda...`);
   bot.stop(signal);
@@ -50,9 +44,19 @@ const shutdown = async (signal) => {
 process.once('SIGINT', () => shutdown('SIGINT'));
 process.once('SIGTERM', () => shutdown('SIGTERM'));
 
-bot.launch().then(() => {
-  console.log('✅ MakerPay bot ishga tushdi!');
-}).catch((err) => {
-  console.error('Bot ishga tushmadi:', err.message);
-  process.exit(1);
-});
+const isProduction = process.env.NODE_ENV === 'production';
+const domain = process.env.CALLBACK_URL;
+
+if (isProduction && domain) {
+  // Production: webhook mode — no polling, no 409 conflicts
+  const app = createCallbackServer(bot);
+  app.use(bot.webhookCallback('/telegram-webhook'));
+  startServer(app);
+  await bot.telegram.setWebhook(`${domain}/telegram-webhook`);
+  console.log(`✅ Webhook: ${domain}/telegram-webhook`);
+} else {
+  // Development: long polling
+  createCallbackServer(bot);
+  await bot.launch();
+  console.log('✅ MakerPay bot ishga tushdi! (polling)');
+}
