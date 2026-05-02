@@ -8,7 +8,6 @@ export function registerProfile(bot) {
     await showProfile(ctx);
   });
 
-  // Logout confirmation
   bot.action('logout_confirm', async (ctx) => {
     await ctx.answerCbQuery();
     await ctx.editMessageText(
@@ -23,26 +22,30 @@ export function registerProfile(bot) {
     );
   });
 
-  // Do logout
   bot.action('logout_do', async (ctx) => {
-    await execute(
-      `UPDATE bot_profiles SET supabase_uid = '', email = '', name = '', updated_at = NOW()
-       WHERE telegram_chat_id = $1`,
-      [String(ctx.from.id)],
-    );
-    await ctx.editMessageText(
-      '✅ <b>Muvaffaqiyatli chiqildi</b>\n\nHisobingiz uzildi.\n\n🔗 Qayta ulash uchun <b>Google bilan ulash</b> tugmasini bosing.',
-      {
-        parse_mode: 'HTML',
-        ...Markup.inlineKeyboard([
-          [Markup.button.callback('🔗 Qayta ulash', 'connect_google')],
-        ]),
-      },
-    );
     await ctx.answerCbQuery('✅ Chiqildi');
+    try {
+      await execute(
+        `UPDATE bot_profiles
+         SET supabase_uid = '', email = '', name = COALESCE(name, ''), updated_at = NOW()
+         WHERE telegram_chat_id = $1`,
+        [String(ctx.from.id)],
+      );
+      await ctx.editMessageText(
+        '✅ <b>Muvaffaqiyatli chiqildi</b>\n\nHisobingiz uzildi.\n\n🔗 Qayta ulash uchun <b>Google bilan ulash</b> tugmasini bosing.',
+        {
+          parse_mode: 'HTML',
+          ...Markup.inlineKeyboard([
+            [Markup.button.callback('🔗 Qayta ulash', 'connect_google')],
+          ]),
+        },
+      );
+    } catch (err) {
+      console.error('logout_do error:', err.message);
+      await ctx.reply('✅ <b>Chiqildi</b>\n\nHisobingiz uzildi.', { parse_mode: 'HTML' });
+    }
   });
 
-  // Back to profile
   bot.action('profile_back', async (ctx) => {
     await ctx.answerCbQuery();
     await ctx.deleteMessage().catch(() => {});
