@@ -71,7 +71,7 @@ export function createCallbackServer(bot) {
   // Cleanup expired states every 30 min
   setInterval(purgeExpiredStates, 30 * 60 * 1000);
 
-  const port = Number(process.env.CALLBACK_PORT) || 3002;
+  const port = Number(process.env.PORT) || Number(process.env.CALLBACK_PORT) || 3002;
   app.listen(port, () => {
     console.log(`🌐 OAuth callback server: http://localhost:${port}`);
   });
