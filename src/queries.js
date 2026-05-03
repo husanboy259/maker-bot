@@ -52,7 +52,8 @@ export const getUserProfile = (telegramId) =>
      FROM bot_profiles bp
      JOIN users u ON u.id::text = bp.supabase_uid
      LEFT JOIN merchants m ON m.user_id = u.id
-     WHERE bp.telegram_chat_id = $1`,
+     WHERE bp.telegram_chat_id = $1
+       AND bp.supabase_uid != ''`,
     [String(telegramId)],
   );
 
