@@ -1,6 +1,5 @@
 import { Markup } from 'telegraf';
 import bcrypt from 'bcryptjs';
-import { getGoogleOAuthUrl, getRedirectUri } from '../auth.js';
 import { getBotProfile } from '../queries.js';
 import { fetchOne, execute } from '../database.js';
 
@@ -10,7 +9,7 @@ const awaitingStep = new Map(); // telegramId → { step, email? }
 export function registerConnect(bot) {
 
   // ── Main connect button ───────────────────────────────────────────────────
-  bot.hears('🔗 Google bilan ulash', async (ctx) => {
+  bot.hears(/🔗 (Google bilan ulash|Hisob ulash)/, async (ctx) => {
     await handleConnect(ctx);
   });
 
@@ -194,30 +193,17 @@ async function handleConnect(ctx) {
     );
   }
 
-  let googleUrl;
-  try {
-    googleUrl = await getGoogleOAuthUrl(ctx.from.id);
-    console.log('[OAuth] redirect_uri:', getRedirectUri());
-  } catch (err) {
-    console.error('[OAuth] URL error:', err.message);
-    googleUrl = null;
-  }
-
-  const buttons = [];
-  if (googleUrl) {
-    buttons.push([Markup.button.url('🔗 Google bilan kirish', googleUrl)]);
-  }
-  buttons.push([Markup.button.callback('📧 Email va parol bilan ulash', 'connect_email')]);
-  buttons.push([Markup.button.callback('🔙 Orqaga', 'back_main')]);
-
   await ctx.reply(
     `🔗 <b>Hisob ulash</b>\n\n` +
     `⚠️ <b>Avval saytdan ro'yxatdan o'ting!</b>\n` +
     `👉 <a href="https://makerpay.uz/sign-up">makerpay.uz/sign-up</a>\n\n` +
-    `Ro'yxatdan o'tgach, quyidagi usullardan biri bilan hisobingizni botga ulang:\n\n` +
-    `<b>1️⃣ Google orqali</b> — tez va qulay\n` +
-    `<b>2️⃣ Email va parol</b> — Google ishlamasa\n\n` +
-    `⏱️ Google havolasi <b>10 daqiqa</b> amal qiladi.`,
-    { parse_mode: 'HTML', ...Markup.inlineKeyboard(buttons) },
+    `Ro'yxatdan o'tgach, email va parol bilan hisobingizni botga ulang.`,
+    {
+      parse_mode: 'HTML',
+      ...Markup.inlineKeyboard([
+        [Markup.button.callback('📧 Email va parol bilan ulash', 'connect_email')],
+        [Markup.button.callback('🔙 Orqaga', 'back_main')],
+      ]),
+    },
   );
 }
