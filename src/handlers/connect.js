@@ -1,5 +1,5 @@
 import { Markup } from 'telegraf';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import { getGoogleOAuthUrl, getRedirectUri } from '../auth.js';
 import { getBotProfile } from '../queries.js';
 import { fetchOne, execute } from '../database.js';
