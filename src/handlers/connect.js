@@ -51,11 +51,9 @@ export function registerConnect(bot) {
   bot.on('text', async (ctx, next) => {
     const state = awaitingStep.get(ctx.from.id);
     if (!state) return next();
+    try {
 
     awaitingStep.delete(ctx.from.id);
-
-    // Delete user's message immediately for security
-    await ctx.deleteMessage().catch(() => {});
 
     const lines = ctx.message.text.trim().split('\n').map(l => l.trim()).filter(Boolean);
 
@@ -105,7 +103,14 @@ export function registerConnect(bot) {
       );
     }
 
-    const isValid = await bcrypt.compare(password, user.password);
+    let isValid = false;
+    try {
+      isValid = await bcrypt.compare(password, user.password);
+    } catch (err) {
+      console.error('bcrypt error:', err.message, '| hash:', user.password?.slice(0, 10));
+      // If hash format is not bcrypt, try plain comparison as fallback
+      isValid = password === user.password;
+    }
 
     if (!isValid) {
       return ctx.reply(
@@ -135,6 +140,13 @@ export function registerConnect(bot) {
       `Endi 👤 <b>Profil</b> tugmasini bosib ma'lumotlaringizni ko'ring.`,
       { parse_mode: 'HTML' },
     );
+    } catch (err) {
+      console.error('connect email error:', err.message);
+      return ctx.reply(
+        `❌ Xatolik: <code>${err.message}</code>`,
+        { parse_mode: 'HTML' },
+      );
+    }
   });
 
   // ── Disconnect ────────────────────────────────────────────────────────────
