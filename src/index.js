@@ -44,14 +44,20 @@ const shutdown = async (signal) => {
 process.once('SIGINT', () => shutdown('SIGINT'));
 process.once('SIGTERM', () => shutdown('SIGTERM'));
 
-const isProduction = process.env.NODE_ENV === 'production';
-const domain = process.env.CALLBACK_URL;
+// Render provides RENDER_EXTERNAL_URL automatically
+const domain = process.env.RENDER_EXTERNAL_URL
+  || process.env.CALLBACK_URL
+  || null;
 
-if (isProduction && domain) {
+const isProduction = !!domain;
+
+if (isProduction) {
   // Production: webhook mode — no polling, no 409 conflicts
   const app = createCallbackServer(bot);
   app.use(bot.webhookCallback('/telegram-webhook'));
   startServer(app);
+  // Delete any old webhook first, then set new one
+  await bot.telegram.deleteWebhook();
   await bot.telegram.setWebhook(`${domain}/telegram-webhook`);
   console.log(`✅ Webhook: ${domain}/telegram-webhook`);
 } else {

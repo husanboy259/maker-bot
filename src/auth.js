@@ -30,8 +30,10 @@ export async function purgeExpiredStates() {
 // ── Redirect URI (must match Google Cloud Console exactly) ───────────────────
 
 export function getRedirectUri() {
-  return process.env.GOOGLE_REDIRECT_URI
-    || `${process.env.CALLBACK_URL}/auth/google/callback`;
+  if (process.env.GOOGLE_REDIRECT_URI) return process.env.GOOGLE_REDIRECT_URI;
+  const base = process.env.RENDER_EXTERNAL_URL || process.env.CALLBACK_URL;
+  if (!base) throw new Error('RENDER_EXTERNAL_URL yoki CALLBACK_URL o\'rnatilmagan!');
+  return `${base}/auth/google/callback`;
 }
 
 // ── Google OAuth2 ─────────────────────────────────────────────────────────────
