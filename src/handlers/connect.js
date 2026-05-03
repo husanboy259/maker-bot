@@ -23,14 +23,17 @@ export function registerConnect(bot) {
     await handleConnect(ctx);
   });
 
-  // ── Step 1: Ask email ─────────────────────────────────────────────────────
+  // ── Step 1: Ask email + password together ────────────────────────────────
   bot.action('connect_email', async (ctx) => {
     await ctx.answerCbQuery();
-    awaitingStep.set(ctx.from.id, { step: 'email' });
+    awaitingStep.set(ctx.from.id, { step: 'email_password' });
     await ctx.editMessageText(
       `📧 <b>Email orqali ulash</b>\n\n` +
-      `<b>1-qadam:</b> MakerPay da ro'yxatdan o'tgan email manzilingizni yuboring:\n\n` +
-      `<i>Misol: user@gmail.com</i>`,
+      `<b>1-qadam:</b> Saytdan ro'yxatdan o'ting:\n` +
+      `👉 <a href="https://makerpay.uz/sign-up">makerpay.uz/sign-up</a>\n\n` +
+      `<b>2-qadam:</b> MakerPay da ro'yxatdan o'tgan email va parolingizni yuboring:\n\n` +
+      `<code>user@gmail.com\nparolingiz</code>\n\n` +
+      `<i>⚠️ Xabar yuborilgandan so'ng avtomatik o'chiriladi.</i>`,
       {
         parse_mode: 'HTML',
         ...Markup.inlineKeyboard([[Markup.button.callback('❌ Bekor qilish', 'cancel_email')]]),
@@ -44,112 +47,94 @@ export function registerConnect(bot) {
     await handleConnect(ctx);
   });
 
-  // ── Text interceptor: email → password → verify ───────────────────────────
+  // ── Text interceptor: email + password in one message ────────────────────
   bot.on('text', async (ctx, next) => {
     const state = awaitingStep.get(ctx.from.id);
     if (!state) return next();
 
-    const text = ctx.message.text.trim();
+    awaitingStep.delete(ctx.from.id);
 
-    // ── Step 1: Receive email ─────────────────────────────────────────────
-    if (state.step === 'email') {
-      const email = text.toLowerCase();
+    // Delete user's message immediately for security
+    await ctx.deleteMessage().catch(() => {});
 
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-        return ctx.reply(
-          '❌ Noto\'g\'ri email format.\n\nQayta yuboring:',
-          Markup.inlineKeyboard([[Markup.button.callback('❌ Bekor qilish', 'cancel_email')]]),
-        );
-      }
+    const lines = ctx.message.text.trim().split('\n').map(l => l.trim()).filter(Boolean);
 
-      const user = await fetchOne(
-        'SELECT id, email, full_name FROM users WHERE LOWER(email) = $1',
-        [email],
-      );
-
-      if (!user) {
-        awaitingStep.delete(ctx.from.id);
-        return ctx.reply(
-          `❌ <b>${email}</b> email bilan hisob topilmadi.\n\n` +
-          `Avval saytdan ro'yxatdan o'ting.`,
-          {
-            parse_mode: 'HTML',
-            ...Markup.inlineKeyboard([
-              [Markup.button.url('📝 Ro\'yxatdan o\'tish', 'https://makerpay.uz/sign-up')],
-              [Markup.button.callback('🔙 Orqaga', 'connect_google')],
-            ]),
-          },
-        );
-      }
-
-      // Email found — ask for password
-      awaitingStep.set(ctx.from.id, { step: 'password', email, userId: user.id, fullName: user.full_name });
+    if (lines.length < 2) {
       return ctx.reply(
-        `✅ Email topildi: <code>${email}</code>\n\n` +
-        `<b>2-qadam:</b> Parolingizni yuboring:\n\n` +
-        `<i>⚠️ Xabar yuborilgandan keyin parol avtomatik o'chiriladi.</i>`,
+        '❌ Email va parolni <b>ikki qatorda</b> yuboring:\n\n' +
+        '<code>user@gmail.com\nparolingiz</code>',
         {
           parse_mode: 'HTML',
-          ...Markup.inlineKeyboard([[Markup.button.callback('❌ Bekor qilish', 'cancel_email')]]),
+          ...Markup.inlineKeyboard([[Markup.button.callback('🔄 Qayta urinish', 'connect_email')]]),
         },
       );
     }
 
-    // ── Step 2: Receive password ──────────────────────────────────────────
-    if (state.step === 'password') {
-      awaitingStep.delete(ctx.from.id);
+    const email = lines[0].toLowerCase();
+    const password = lines[1];
 
-      // Delete password message immediately for security
-      await ctx.deleteMessage().catch(() => {});
-
-      const { email, userId, fullName } = state;
-
-      // Fetch hashed password
-      const userWithPass = await fetchOne(
-        'SELECT id, email, full_name, password FROM users WHERE id = $1',
-        [userId],
-      );
-
-      if (!userWithPass?.password) {
-        return ctx.reply(
-          '❌ Bu hisob uchun parol o\'rnatilmagan.\n\n🔗 Google orqali ulashni sinab ko\'ring.',
-          Markup.inlineKeyboard([[Markup.button.callback('🔗 Google bilan ulash', 'connect_google')]]),
-        );
-      }
-
-      const isValid = await bcrypt.compare(text, userWithPass.password);
-
-      if (!isValid) {
-        return ctx.reply(
-          '❌ <b>Parol noto\'g\'ri.</b>\n\nQayta urinib ko\'ring.',
-          {
-            parse_mode: 'HTML',
-            ...Markup.inlineKeyboard([
-              [Markup.button.callback('🔄 Qayta urinish', 'connect_email')],
-              [Markup.button.callback('🔙 Orqaga', 'connect_google')],
-            ]),
-          },
-        );
-      }
-
-      // ✅ Correct — link account
-      await execute(
-        `UPDATE bot_profiles
-         SET supabase_uid = $1, email = $2, name = $3, updated_at = NOW()
-         WHERE telegram_chat_id = $4`,
-        [String(userId), email, fullName || '', String(ctx.from.id)],
-      );
-
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return ctx.reply(
-        `✅ <b>Hisob muvaffaqiyatli ulandi!</b>\n\n` +
-        `📧 Email: <code>${email}</code>\n` +
-        `👤 Ism: ${fullName || '—'}\n\n` +
-        `Endi 👤 <b>Profil</b> tugmasini bosib ma'lumotlaringizni ko'ring.`,
-        { parse_mode: 'HTML' },
+        '❌ Noto\'g\'ri email format.\n\nQayta yuboring:',
+        Markup.inlineKeyboard([[Markup.button.callback('🔄 Qayta urinish', 'connect_email')]]),
       );
     }
 
-    return next();
+    const user = await fetchOne(
+      'SELECT id, email, full_name, password FROM users WHERE LOWER(email) = $1',
+      [email],
+    );
+
+    if (!user) {
+      return ctx.reply(
+        `❌ <b>${email}</b> email bilan hisob topilmadi.\n\nAvval saytdan ro'yxatdan o'ting.`,
+        {
+          parse_mode: 'HTML',
+          ...Markup.inlineKeyboard([
+            [Markup.button.url('📝 Ro\'yxatdan o\'tish', 'https://makerpay.uz/sign-up')],
+            [Markup.button.callback('🔄 Qayta urinish', 'connect_email')],
+          ]),
+        },
+      );
+    }
+
+    if (!user.password) {
+      return ctx.reply(
+        '❌ Bu hisob uchun parol o\'rnatilmagan.\n\n🔗 Google orqali ulashni sinab ko\'ring.',
+        Markup.inlineKeyboard([[Markup.button.callback('🔗 Google bilan ulash', 'connect_google')]]),
+      );
+    }
+
+    const isValid = await bcrypt.compare(password, user.password);
+
+    if (!isValid) {
+      return ctx.reply(
+        '❌ <b>Email yoki parol noto\'g\'ri.</b>\n\nQayta urinib ko\'ring.',
+        {
+          parse_mode: 'HTML',
+          ...Markup.inlineKeyboard([
+            [Markup.button.callback('🔄 Qayta urinish', 'connect_email')],
+            [Markup.button.callback('🔙 Orqaga', 'connect_google')],
+          ]),
+        },
+      );
+    }
+
+    // ✅ Correct — link account
+    await execute(
+      `UPDATE bot_profiles
+       SET supabase_uid = $1, email = $2, name = $3, updated_at = NOW()
+       WHERE telegram_chat_id = $4`,
+      [String(user.id), user.email, user.full_name || '', String(ctx.from.id)],
+    );
+
+    return ctx.reply(
+      `✅ <b>Hisob muvaffaqiyatli ulandi!</b>\n\n` +
+      `📧 Email: <code>${user.email}</code>\n` +
+      `👤 Ism: ${user.full_name || '—'}\n\n` +
+      `Endi 👤 <b>Profil</b> tugmasini bosib ma'lumotlaringizni ko'ring.`,
+      { parse_mode: 'HTML' },
+    );
   });
 
   // ── Disconnect ────────────────────────────────────────────────────────────
