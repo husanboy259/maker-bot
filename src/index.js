@@ -52,16 +52,18 @@ const domain = process.env.RENDER_EXTERNAL_URL
 const isProduction = !!domain;
 
 if (isProduction) {
-  // Production: webhook mode — no polling, no 409 conflicts
   const app = createCallbackServer(bot);
   app.use(bot.webhookCallback('/telegram-webhook'));
   startServer(app);
-  // Delete any old webhook first, then set new one
-  await bot.telegram.deleteWebhook();
-  await bot.telegram.setWebhook(`${domain}/telegram-webhook`);
-  console.log(`✅ Webhook: ${domain}/telegram-webhook`);
+  try {
+    await bot.telegram.deleteWebhook({ drop_pending_updates: true });
+    await bot.telegram.setWebhook(`${domain}/telegram-webhook`);
+    console.log(`✅ Webhook: ${domain}/telegram-webhook`);
+  } catch (err) {
+    // Another instance already set the webhook — safe to ignore
+    console.log(`ℹ️ Webhook already set: ${err.message}`);
+  }
 } else {
-  // Development: long polling
   createCallbackServer(bot);
   await bot.launch();
   console.log('✅ MakerPay bot ishga tushdi! (polling)');
