@@ -5,7 +5,7 @@ export const mainMenu = () =>
     ['👤 Profil', '✅ Tugatilganlar'],
     ['🔑 API kalitlar', '📁 Loyihalar'],
     ['🚀 Deploylar', '📜 Foydalanish qoidalari'],
-    ['🔔 Bildirishnomalar', '🔗 Hisob ulash'],
+    ['🔔 Bildirishnomalar', '🔗 Google bilan ulash'],
   ]).resize();
 
 export const notificationsMenu = (isEnabled) =>
