@@ -31,7 +31,7 @@ export function registerProfile(bot) {
     try {
       const result = await execute(
         `UPDATE bot_profiles
-         SET supabase_uid = '', email = '', updated_at = NOW()
+         SET supabase_uid = '', email = NULL, updated_at = NOW()
          WHERE telegram_chat_id = $1`,
         [tid],
       );

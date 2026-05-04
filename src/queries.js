@@ -14,9 +14,9 @@ export async function getOrCreateBotProfile(telegramId, username, fullName) {
 
   await execute(
     `INSERT INTO bot_profiles (id, supabase_uid, email, name, telegram_chat_id, telegram_enabled, created_at, updated_at)
-     VALUES (gen_random_uuid(), '', $1, $2, $3, true, NOW(), NOW())
+     VALUES (gen_random_uuid(), '', NULL, $1, $2, true, NOW(), NOW())
      ON CONFLICT (telegram_chat_id) DO NOTHING`,
-    [username ? `@${username}` : '', fullName, tid],
+    [fullName, tid],
   );
   return fetchOne('SELECT * FROM bot_profiles WHERE telegram_chat_id = $1', [tid]);
 }
