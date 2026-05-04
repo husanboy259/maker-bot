@@ -23,29 +23,40 @@ export function registerProfile(bot) {
   });
 
   bot.action('logout_do', async (ctx) => {
-    await ctx.answerCbQuery();
+    try {
+      await ctx.answerCbQuery();
+    } catch (_) {}
+
     const tid = String(ctx.from.id);
-    const result = await execute(
-      `UPDATE bot_profiles
-       SET supabase_uid = '', email = '', updated_at = NOW()
-       WHERE telegram_chat_id = $1`,
-      [tid],
-    );
-    console.log(`[logout] telegram_id=${tid} rowCount=${result.rowCount}`);
-    await ctx.editMessageText(
-      '✅ <b>Muvaffaqiyatli chiqildi</b>\n\nHisobingiz uzildi.\n\n🔗 Qayta ulash uchun <b>Google bilan ulash</b> tugmasini bosing.',
-      {
-        parse_mode: 'HTML',
-        ...Markup.inlineKeyboard([
-          [Markup.button.callback('🔗 Qayta ulash', 'connect_google')],
-        ]),
-      },
-    ).catch(() =>
-      ctx.reply(
+    try {
+      const result = await execute(
+        `UPDATE bot_profiles
+         SET supabase_uid = '', email = '', updated_at = NOW()
+         WHERE telegram_chat_id = $1`,
+        [tid],
+      );
+      console.log(`[logout] tid=${tid} rowCount=${result.rowCount}`);
+    } catch (err) {
+      console.error('[logout] DB error:', err.message);
+      return ctx.reply(`❌ DB xatolik: <code>${err.message}</code>`, { parse_mode: 'HTML' });
+    }
+
+    try {
+      await ctx.editMessageText(
+        '✅ <b>Muvaffaqiyatli chiqildi</b>\n\nHisobingiz uzildi.\n\n🔗 Qayta ulash uchun <b>Google bilan ulash</b> tugmasini bosing.',
+        {
+          parse_mode: 'HTML',
+          ...Markup.inlineKeyboard([
+            [Markup.button.callback('🔗 Qayta ulash', 'connect_google')],
+          ]),
+        },
+      );
+    } catch (_) {
+      await ctx.reply(
         '✅ <b>Muvaffaqiyatli chiqildi</b>\n\nHisobingiz uzildi.',
         { parse_mode: 'HTML' },
-      )
-    );
+      );
+    }
   });
 
   bot.action('profile_back', async (ctx) => {
