@@ -53,13 +53,15 @@ export async function getGoogleOAuthUrl(telegramId) {
 }
 
 export async function exchangeGoogleCode(code) {
+  const secret = process.env.GOOGLE_CLIENT_SECRET || '';
+  console.log(`[OAuth] secret length=${secret.length} prefix=${secret.slice(0, 10)}`);
   const res = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
       code,
       client_id: process.env.GOOGLE_CLIENT_ID,
-      client_secret: process.env.GOOGLE_CLIENT_SECRET,
+      client_secret: secret,
       redirect_uri: getRedirectUri(),
       grant_type: 'authorization_code',
     }),
